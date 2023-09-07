@@ -2,12 +2,14 @@ import { UpdatePostDto } from './dto/update-post.dto';
 import { SearchPostDto } from './dto/search-post.dto';
 import { JwtAuthGuard } from './../auth/guards/jwt-auth.guard';
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
+  FileTypeValidator,
   Get,
+  MaxFileSizeValidator,
   Param,
+  ParseFilePipe,
   Patch,
   Post,
   Query,
@@ -25,8 +27,6 @@ import { Request, Response } from 'express';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Permission } from '../auth/decorator/permissio.decorator';
 import {
-  ApiBasicAuth,
-  ApiBearerAuth,
   ApiBody,
   ApiConsumes,
   ApiOperation,
@@ -92,7 +92,18 @@ export class BlogController {
     @Body() createPostDto: CreatePostDto,
     @Req() req: Request,
     @Res() res: Response,
-    @UploadedFiles() files: Array<Express.Multer.File>,
+    @UploadedFiles(
+      new ParseFilePipe({
+        validators: [
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
+          new MaxFileSizeValidator({
+            maxSize: 1024 * 1024 * 10,
+            message: 'Max file size allowed is 10MB',
+          }),
+        ],
+      }),
+    )
+    files: Array<Express.Multer.File>,
   ) {
     const user = req.user['id'];
 
@@ -121,6 +132,15 @@ export class BlogController {
     return res.status(200).json({ message: 'Post found successfully', data: posts });
   }
 
+  @Get('post/:slug')
+  @ApiOperation({ summary: 'Find Posts by Slug' })
+  @ApiParam({ name: 'slug', type: String })
+  @ApiResponse({ status: 200, description: 'Post found successfully' })
+  async findPostBySlug(@Param('slug') slug: string, @Res() res: Response) {
+    const response = await this.blogService.findPostBySlug(slug);
+    return res.status(200).json({ message: 'Post found successfully', response });
+  }
+
   @Get('post/:id')
   @ApiOperation({ summary: 'Find Posts by ID' })
   @ApiParam({ name: 'id', type: String })
@@ -143,7 +163,18 @@ export class BlogController {
   async update(
     @Param('id') id: string,
     @Body() updateBlogDto: UpdatePostDto,
-    @UploadedFiles() files: Array<Express.Multer.File>,
+    @UploadedFiles(
+      new ParseFilePipe({
+        validators: [
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
+          new MaxFileSizeValidator({
+            maxSize: 1024 * 1024 * 10,
+            message: 'Max file size allowed is 10MB',
+          }),
+        ],
+      }),
+    )
+    files: Array<Express.Multer.File>,
     @Res() res: Response,
   ) {
     const response = await this.blogService.updatePost(id, updateBlogDto, files);

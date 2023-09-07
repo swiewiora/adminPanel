@@ -1,16 +1,10 @@
 import { CloudinarySystemService } from '../cloudinary/cloudinary-system.service';
 import { CacheSystemService } from './../cache-system/cache-system.service';
-import {
-  Injectable,
-  NotFoundException,
-  HttpException,
-  ForbiddenException,
-  HttpStatus,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { CreatePostDto, SearchPostDto, UpdatePostDto } from './dto';
 
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CustomErrorException, errorCases, PostNotFoundError } from '../utils';
+import { CustomErrorException, errorCases, PostNotFoundError, SlugGenerator } from '../utils';
 import { Post, Prisma } from '@prisma/client';
 
 import { ResourcesService } from './resources/resources.service';
@@ -35,6 +29,7 @@ export class BlogService {
     this.cache._configModel('post', {
       include: {
         resources: true,
+        user: true,
       },
     });
   }
@@ -55,7 +50,7 @@ export class BlogService {
     files: Array<Express.Multer.File>,
   ): Promise<Post | CustomErrorException> {
     try {
-      const { title, content, description, category, tags } = createPostDto;
+      const { title, description, category, tags, content } = createPostDto;
 
       const uploadImages = await this.cloudinary.upload(files);
 
@@ -75,6 +70,7 @@ export class BlogService {
       const post = await this.prisma.post.create({
         data: {
           title,
+          slug: SlugGenerator.slugify(title),
           content,
           description,
           tags,
@@ -84,6 +80,7 @@ export class BlogService {
               data: uploadImages,
             },
           },
+
           createdAt: new Date(),
           user: {
             connect: {
@@ -93,6 +90,7 @@ export class BlogService {
         },
         include: {
           resources: true,
+          user: true,
         },
       });
 
@@ -150,6 +148,7 @@ export class BlogService {
 
         include: {
           resources: true,
+          user: true,
         },
       });
 
@@ -182,6 +181,7 @@ export class BlogService {
         where: { id },
         include: {
           resources: true,
+          user: true,
         },
       });
 
@@ -201,6 +201,46 @@ export class BlogService {
       throw e;
     }
   }
+  /**
+   * Retrieve a blog post by its slug.
+   *
+   * This method searches for a blog post in the database using its unique slug. If the post is
+   * found, it is returned. If not, an error is thrown.
+   *
+   * @param {string} slug - The slug of the post to retrieve.
+   * @returns {Promise<Post>} A promise that resolves to the retrieved post.
+   * @throws {PostNotFoundError} If the specified post is not found.
+   * @throws {CustomErrorException} If there is a general error during retrieval.
+   */
+  async findPostBySlug(slug: string) {
+    const dataCache = JSON.parse(await this.cache.get('blog:' + slug));
+    if (dataCache) return dataCache;
+    try {
+      const post = await this.prisma.post.findFirst({
+        where: { slug },
+        include: {
+          resources: true,
+          user: true,
+        },
+      });
+
+      if (!post) throw new PostNotFoundError(slug);
+
+      this.cache.set('blog:' + slug, JSON.stringify(post), 60 * 2);
+
+      return post;
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError) {
+        throw new CustomErrorException({
+          errorCase: errorCases.POST_NOT_FOUND,
+          errorType: 'Post',
+          value: slug,
+        });
+      }
+      throw e;
+    }
+  }
+
   /**
    * Retrieve blog posts based on a search query.
    *
@@ -248,6 +288,7 @@ export class BlogService {
         take: +limit || 10,
         include: {
           resources: true,
+          user: true,
         },
       });
 
@@ -285,7 +326,7 @@ export class BlogService {
   async updatePost(id: string, updatePostDto: UpdatePostDto, files?: Array<Express.Multer.File>) {
     const cloud = files && files.length > 0 ? await this.cloudinary.upload(files) : undefined;
 
-    const { resourcesIds, ...rest } = updatePostDto;
+    const { resourcesIds, title, ...rest } = updatePostDto;
 
     try {
       const data = await this.prisma.$transaction(async ctx => {
@@ -310,6 +351,7 @@ export class BlogService {
           data: {
             ...rest,
             updatedAt: new Date(),
+            slug: title ? SlugGenerator.slugify(title) : undefined,
             resources: cloud
               ? {
                   createMany: {
@@ -320,6 +362,7 @@ export class BlogService {
           },
           include: {
             resources: true,
+            user: true,
           },
         });
 
