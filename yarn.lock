@@ -812,7 +812,7 @@
     multer "1.4.4-lts.1"
     tslib "2.5.3"
 
-"@nestjs/platform-socket.io@^9":
+"@nestjs/platform-socket.io@^9.0.0":
   version "9.4.3"
   resolved "https://registry.yarnpkg.com/@nestjs/platform-socket.io/-/platform-socket.io-9.4.3.tgz#c2d7e45548afc5c13d549b2085e663e67b43f7ef"
   integrity sha512-l5aKaavjiZIFZf/yPLzyVqe2zTaNzSW1EobnvezLw+s9pCFzlotS/pn8mDEhChNA6DWMLrmp5aGYRFLEifqZfg==
@@ -848,7 +848,7 @@
   dependencies:
     tslib "2.5.3"
 
-"@nestjs/websockets@^9":
+"@nestjs/websockets@^9.0.0":
   version "9.4.3"
   resolved "https://registry.yarnpkg.com/@nestjs/websockets/-/websockets-9.4.3.tgz#0584a66bd4bc1563b0cb18a141d4a565397eddaf"
   integrity sha512-LMLKJWZbWH3VQRxDK/658ynyN1n5lLCIen/dey2y5TzB0RNgxlSso/YJATVVfWNaT2CxPG8TUQMOTdopXCWGQw==
